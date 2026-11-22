@@ -37,6 +37,7 @@ spl-transfer-hook-interface = { workspace = true, optional = true }
 anchor-client = { workspace = true, features = ["async"] }
 anchor-spl = { workspace = true }
 bincode = { workspace = true }
+solana-rpc-client-api = { workspace = true }
 solana-sdk = { workspace = true }
 spl-associated-token-account = { workspace = true }
 solana-program-test = "3.1"

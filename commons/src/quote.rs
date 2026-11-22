@@ -709,11 +709,13 @@ pub fn get_bin_array_pubkeys_for_swap(
     Ok(bin_array_pubkeys)
 }
 
-#[cfg(all(test, feature = "rpc"))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "rpc")]
     use anchor_client::Cluster;
     use litesvm::LiteSVM;
+    #[cfg(feature = "rpc")]
     use solana_rpc_client::nonblocking::rpc_client::RpcClient;
     use solana_rpc_client_api::response::RpcKeyedAccount;
     use solana_sdk::account::Account;
@@ -728,6 +730,7 @@ mod tests {
     pub const DLMM_PROGRAM_FILE_PATH: &str = "../artifacts/lb_clmm.so";
 
     /// Get on chain clock
+    #[cfg(feature = "rpc")]
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
         let clock_account = rpc_client
             .get_account(&solana_sdk::sysvar::clock::ID)
@@ -738,6 +741,7 @@ mod tests {
         Ok(clock_state)
     }
 
+    #[cfg(feature = "rpc")]
     #[tokio::test]
     async fn test_swap_quote_exact_out() {
         // RPC client. No gPA is required.
@@ -875,6 +879,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rpc")]
     #[tokio::test]
     async fn test_swap_quote_exact_in() {
         // RPC client. No gPA is required.
