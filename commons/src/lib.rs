@@ -1,4 +1,4 @@
-use anchor_lang::prelude::declare_program;
+use anchor_lang::prelude::{anchor_lang, declare_program};
 use anyhow::*;
 use bytemuck::AnyBitPattern;
 
@@ -38,15 +38,21 @@ pub use quote::*;
 pub mod seeds;
 pub use seeds::*;
 
+pub mod swap;
+pub use swap::*;
+
 pub mod math;
 pub use math::*;
 
 pub mod typedefs;
 pub use typedefs::*;
 
+#[cfg(feature = "rpc")]
 pub mod rpc_client_extension;
 
+#[cfg(feature = "rpc")]
 pub mod account_filters;
+#[cfg(feature = "rpc")]
 pub use account_filters::*;
 
 pub mod token_2022;

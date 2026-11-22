@@ -7,29 +7,41 @@ description = "Common libraries for DLMM"
 authors = ["tian <tian@racoons.dev>"]
 
 [features]
+rpc = [
+    "dep:async-trait",
+    "dep:solana-rpc-client",
+    "dep:solana-rpc-client-api",
+    "dep:solana-sdk",
+    "dep:spl-transfer-hook-interface",
+    "dep:tokio",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anchor-lang = { workspace = true }
-anchor-client = { workspace = true, features = ["async"] }
-anchor-spl = { workspace = true }
+solana-rpc-client = { workspace = true, optional = true }
+solana-rpc-client-api = { workspace = true, optional = true }
+spl-token-2022-interface = { workspace = true }
 anyhow = { workspace = true }
-tokio = { workspace = true, features = ["full", "parking_lot"] }
-bincode = { workspace = true }
-solana-sdk = { workspace = true }
+tokio = { workspace = true, features = ["full", "parking_lot"], optional = true }
+solana-sdk = { workspace = true, optional = true }
 ruint = { workspace = true }
 num-traits = { workspace = true }
 num-integer = { workspace = true }
 bytemuck = { workspace = true, features = ["derive", "min_const_generics"] }
-async-trait = { workspace = true }
-spl-transfer-hook-interface = { workspace = true }
+async-trait = { workspace = true, optional = true }
+spl-transfer-hook-interface = { workspace = true, optional = true }
 
 [dev-dependencies]
+anchor-client = { workspace = true, features = ["async"] }
+anchor-spl = { workspace = true }
+bincode = { workspace = true }
+solana-sdk = { workspace = true }
 spl-associated-token-account = { workspace = true }
-solana-program-test = "2.1.0"
+solana-program-test = "3.1"
 assert_matches = "1.5.0"
-solana-program = "2.1.0"
+solana-program = "3.0"
 spl-memo = { workspace = true, features = ["no-entrypoint"] }
-litesvm = "0.6.0"
+litesvm = "0.11"
 serde_json = { workspace = true }

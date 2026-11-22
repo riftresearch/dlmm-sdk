@@ -1,8 +1,7 @@
 use crate::*;
-use anchor_spl::token::spl_token;
-use anchor_spl::token_2022::spl_token_2022;
+use anchor_lang::prelude::Pubkey;
 use ruint::aliases::U1024;
-use solana_sdk::pubkey::Pubkey;
+use spl_token_2022_interface::inline_spl_token;
 use std::ops::Deref;
 use std::ops::Shl;
 use std::ops::Shr;
@@ -57,8 +56,8 @@ impl LbPairExtension for LbPair {
         {
             let flag: TokenProgramFlagWrapper = token_program_flag.try_into()?;
             let token_program_id = match flag.deref() {
-                TokenProgramFlags::TokenProgram => spl_token::ID,
-                TokenProgramFlags::TokenProgram2022 => spl_token_2022::ID,
+                TokenProgramFlags::TokenProgram => inline_spl_token::ID,
+                TokenProgramFlags::TokenProgram2022 => spl_token_2022_interface::ID,
             };
             token_programs_id[i] = token_program_id;
         }

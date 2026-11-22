@@ -4,6 +4,7 @@ use anchor_spl::token::spl_token;
 use anchor_spl::token_interface::TokenAccount;
 use assert_matches::assert_matches;
 use commons::dlmm::accounts::{BinArray, LbPair};
+use commons::MintAccount;
 use solana_program::clock::Clock;
 use solana_program_test::BanksClient;
 use solana_sdk::{
@@ -94,10 +95,7 @@ pub async fn warp_sol(
     amount: u64,
     banks_client: &mut BanksClient,
 ) {
-    let wsol_ata = spl_associated_token_account::get_associated_token_address(
-        &wallet,
-        &spl_token::native_mint::id(),
-    );
+    let wsol_ata = get_associated_token_address(&wallet, &spl_token::native_mint::id());
 
     let create_wsol_ata_ix =
         spl_associated_token_account::instruction::create_associated_token_account(
@@ -107,8 +105,11 @@ pub async fn warp_sol(
             &spl_token::id(),
         );
 
-    let transfer_sol_ix =
-        solana_program::system_instruction::transfer(&payer.pubkey(), &wsol_ata, amount);
+    let transfer_sol_ix = anchor_lang::solana_program::system_instruction::transfer(
+        &payer.pubkey(),
+        &wsol_ata,
+        amount,
+    );
 
     let sync_native_ix = spl_token::instruction::sync_native(&spl_token::id(), &wsol_ata).unwrap();
 
@@ -174,6 +175,13 @@ pub async fn fetch_token_account_state(
 pub async fn fetch_lb_pair(banks_client: &mut BanksClient, pubkey: Pubkey) -> LbPair {
     let account = fetch_account(banks_client, pubkey).await;
     bytemuck::pod_read_unaligned(&account.data[8..])
+}
+
+pub fn mint_account(account: &Account) -> MintAccount<'_> {
+    MintAccount {
+        owner: account.owner,
+        data: &account.data,
+    }
 }
 
 pub async fn fetch_swap_state(

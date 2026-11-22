@@ -130,8 +130,8 @@ async fn test_swap_exact_out() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -207,13 +207,11 @@ async fn test_swap() {
         test,
         SplTestPair {
             lb_pair,
-            reserve_x,
-            reserve_y,
             token_x_mint,
             token_y_mint,
-            oracle,
             bin_array_1,
             bin_array_2,
+            ..
         },
     ) = setup_spl_test_pair();
 
@@ -229,8 +227,6 @@ async fn test_swap() {
     let user_token_out =
         get_or_create_ata(&payer, &token_x_mint, &payer.pubkey(), &mut banks_client).await;
 
-    let (event_authority, _bump) = derive_event_authority_pda();
-
     let (lb_pair_state, bin_arrays, mint_x_account, mint_y_account, clock) =
         fetch_swap_state(&mut banks_client, lb_pair, &[bin_array_1, bin_array_2]).await;
 
@@ -242,8 +238,8 @@ async fn test_swap() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -252,44 +248,19 @@ async fn test_swap() {
     let user_token_out_state_before =
         fetch_token_account_state(&mut banks_client, user_token_out).await;
 
-    let main_accounts = dlmm::client::accounts::Swap2 {
+    let swap_ix = swap2_instruction(
         lb_pair,
-        oracle,
-        bin_array_bitmap_extension: Some(dlmm::ID),
-        reserve_x,
-        reserve_y,
+        &lb_pair_state,
+        None,
+        payer.pubkey(),
         user_token_in,
         user_token_out,
-        token_x_mint,
-        token_y_mint,
-        host_fee_in: Some(dlmm::ID),
-        user: payer.pubkey(),
-        token_x_program: spl_token::id(),
-        token_y_program: spl_token::id(),
-        program: dlmm::ID,
-        event_authority,
-        memo_program: spl_memo::id(),
-    }
-    .to_account_metas(None);
-
-    let mut all_accounts = main_accounts.to_vec();
-
-    let mut remaining_accounts = vec![
-        AccountMeta::new(bin_array_1, false),
-        AccountMeta::new(bin_array_2, false),
-    ];
-    all_accounts.append(&mut remaining_accounts);
-
-    let swap_ix = Instruction {
-        program_id: dlmm::ID,
-        accounts: all_accounts,
-        data: dlmm::client::args::Swap2 {
-            amount_in,
-            min_amount_out: 0,
-            remaining_accounts_info: RemainingAccountsInfo { slices: vec![] },
-        }
-        .data(),
-    };
+        amount_in,
+        0,
+        &[bin_array_1, bin_array_2],
+        None,
+    )
+    .unwrap();
 
     process_and_assert_ok(&[swap_ix], &payer, &[&payer], &mut banks_client).await;
 

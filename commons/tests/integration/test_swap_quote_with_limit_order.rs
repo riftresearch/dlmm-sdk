@@ -193,8 +193,8 @@ async fn test_swap_exact_in_x_to_y_with_limit_order() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -326,8 +326,8 @@ async fn test_swap_exact_in_y_to_x_with_limit_order() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -462,8 +462,8 @@ async fn test_swap_exact_out_x_to_y_with_limit_order() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -596,8 +596,8 @@ async fn test_swap_exact_out_y_to_x_with_limit_order() {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 
@@ -759,8 +759,8 @@ async fn run_swap_exact_out_active_bin_partition(kind: ActiveBinOutKind) {
         bin_arrays,
         None,
         &clock,
-        &mint_x_account,
-        &mint_y_account,
+        &mint_account(&mint_x_account),
+        &mint_account(&mint_y_account),
     )
     .unwrap();
 

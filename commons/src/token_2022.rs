@@ -1,20 +1,31 @@
 use crate::*;
-use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
-use anchor_client::solana_client::rpc_client::RpcClient as BlockingRpcClient;
-use anchor_spl::token_2022::spl_token_2022::extension;
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::*;
-use anchor_spl::{token::spl_token, token_2022::spl_token_2022::extension::*};
-use solana_sdk::account::Account;
-use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
+#[cfg(feature = "rpc")]
+use anchor_lang::prelude::AccountMeta;
+use anchor_lang::prelude::Pubkey;
+#[cfg(feature = "rpc")]
+use solana_rpc_client::nonblocking::rpc_client::RpcClient;
+#[cfg(feature = "rpc")]
+use solana_rpc_client::rpc_client::RpcClient as BlockingRpcClient;
+use spl_token_2022_interface::extension;
+use spl_token_2022_interface::extension::transfer_fee::*;
+use spl_token_2022_interface::{extension::*, inline_spl_token as spl_token};
+#[cfg(feature = "rpc")]
 use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
 
 const ONE_IN_BASIS_POINTS: u128 = MAX_FEE_BASIS_POINTS as u128;
+
+#[derive(Debug, Clone, Copy)]
+pub struct MintAccount<'a> {
+    pub owner: Pubkey,
+    pub data: &'a [u8],
+}
 
 pub enum ActionType {
     Liquidity,
     Reward(usize),
 }
 
+#[cfg(feature = "rpc")]
 pub async fn get_potential_token_2022_related_ix_data_and_accounts(
     lb_pair: &LbPair,
     rpc_client: RpcClient,
@@ -60,6 +71,7 @@ pub async fn get_potential_token_2022_related_ix_data_and_accounts(
     }
 }
 
+#[cfg(feature = "rpc")]
 pub async fn get_extra_account_metas_for_transfer_hook(
     mint: Pubkey,
     rpc_client: RpcClient,
@@ -69,23 +81,21 @@ pub async fn get_extra_account_metas_for_transfer_hook(
         return Ok(vec![]);
     }
 
-    let mint_state =
-        StateWithExtensions::<anchor_spl::token_2022::spl_token_2022::state::Mint>::unpack(
-            mint_account.data.as_ref(),
-        )?;
+    let mint_state = StateWithExtensions::<spl_token_2022_interface::state::Mint>::unpack(
+        mint_account.data.as_ref(),
+    )?;
 
     if let Some(transfer_hook_program_id) = transfer_hook::get_program_id(&mint_state) {
-        let mut transfer_ix =
-            anchor_spl::token_2022::spl_token_2022::instruction::transfer_checked(
-                &mint_account.owner,
-                &Pubkey::default(),
-                &mint,
-                &Pubkey::default(),
-                &Pubkey::default(),
-                &[],
-                0,
-                mint_state.base.decimals,
-            )?;
+        let mut transfer_ix = spl_token_2022_interface::instruction::transfer_checked(
+            &mint_account.owner,
+            &Pubkey::default(),
+            &mint,
+            &Pubkey::default(),
+            &Pubkey::default(),
+            &[],
+            0,
+            mint_state.base.decimals,
+        )?;
 
         let blocking_rpc_client = BlockingRpcClient::new(rpc_client.url());
 
@@ -121,15 +131,17 @@ pub async fn get_extra_account_metas_for_transfer_hook(
     Ok(vec![])
 }
 
-pub fn get_epoch_transfer_fee(mint_account: &Account, epoch: u64) -> Result<Option<TransferFee>> {
+pub fn get_epoch_transfer_fee(
+    mint_account: &MintAccount,
+    epoch: u64,
+) -> Result<Option<TransferFee>> {
     if mint_account.owner == spl_token::ID {
         return Ok(None);
     }
 
-    let token_mint_data = mint_account.data.as_ref();
-    let token_mint_unpacked = StateWithExtensions::<
-        anchor_spl::token_2022::spl_token_2022::state::Mint,
-    >::unpack(token_mint_data)?;
+    let token_mint_data = mint_account.data;
+    let token_mint_unpacked =
+        StateWithExtensions::<spl_token_2022_interface::state::Mint>::unpack(token_mint_data)?;
 
     if let std::result::Result::Ok(transfer_fee_config) =
         token_mint_unpacked.get_extension::<extension::transfer_fee::TransferFeeConfig>()
@@ -147,7 +159,7 @@ pub struct TransferFeeExcludedAmount {
 }
 
 pub fn calculate_transfer_fee_excluded_amount(
-    mint_account: &Account,
+    mint_account: &MintAccount,
     transfer_fee_included_amount: u64,
     epoch: u64,
 ) -> Result<TransferFeeExcludedAmount> {
@@ -178,7 +190,7 @@ pub struct TransferFeeIncludedAmount {
 }
 
 pub fn calculate_transfer_fee_included_amount(
-    mint_account: &Account,
+    mint_account: &MintAccount,
     transfer_fee_excluded_amount: u64,
     epoch: u64,
 ) -> Result<TransferFeeIncludedAmount> {

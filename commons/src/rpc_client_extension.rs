@@ -1,6 +1,6 @@
 use crate::*;
-use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
 use async_trait::async_trait;
+use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 #[async_trait]

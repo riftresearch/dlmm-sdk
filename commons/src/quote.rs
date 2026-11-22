@@ -1,7 +1,6 @@
 use crate::*;
-use anchor_client::solana_sdk::pubkey::Pubkey;
+use anchor_lang::prelude::{Clock, Pubkey};
 use core::result::Result::Ok;
-use solana_sdk::{account::Account, clock::Clock};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -9,6 +8,7 @@ pub struct SwapExactInQuote {
     pub amount_out: u64,
     pub fee: u64,
     pub protocol_fee: u64,
+    pub bins_crossed: u32,
 }
 
 #[derive(Debug)]
@@ -440,8 +440,8 @@ pub fn quote_exact_out(
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
     clock: &Clock,
-    mint_x_account: &Account,
-    mint_y_account: &Account,
+    mint_x_account: &MintAccount,
+    mint_y_account: &MintAccount,
 ) -> Result<SwapExactOutQuote> {
     let current_timestamp = clock.unix_timestamp as u64;
     let current_slot = clock.slot;
@@ -548,8 +548,8 @@ pub fn quote_exact_in(
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
     clock: &Clock,
-    mint_x_account: &Account,
-    mint_y_account: &Account,
+    mint_x_account: &MintAccount,
+    mint_y_account: &MintAccount,
 ) -> Result<SwapExactInQuote> {
     let current_timestamp = clock.unix_timestamp as u64;
     let current_slot = clock.slot;
@@ -566,6 +566,7 @@ pub fn quote_exact_in(
     let mut total_amount_out: u64 = 0;
     let mut total_fee: u64 = 0;
     let mut total_protocol_fee: u64 = 0;
+    let mut bins_crossed: u32 = 0;
 
     let (in_mint_account, out_mint_account) = if swap_for_y {
         (mint_x_account, mint_y_account)
@@ -602,6 +603,7 @@ pub fn quote_exact_in(
             }
 
             let active_bin = active_bin_array.get_bin_mut(lb_pair.active_id)?;
+            let _price = active_bin.get_or_store_bin_price(lb_pair.active_id, lb_pair.bin_step)?;
 
             let max_out =
                 active_bin.get_max_amount_out_with_limit_orders(swap_for_y, support_limit_order);
@@ -634,6 +636,7 @@ pub fn quote_exact_in(
 
             if amount_left > 0 {
                 lb_pair.advance_active_bin(swap_for_y)?;
+                bins_crossed = bins_crossed.checked_add(1).context("MathOverflow")?;
             }
         }
     }
@@ -645,6 +648,7 @@ pub fn quote_exact_in(
         amount_out: transfer_fee_excluded_amount_out,
         fee: total_fee,
         protocol_fee: total_protocol_fee,
+        bins_crossed,
     })
 }
 
@@ -705,22 +709,28 @@ pub fn get_bin_array_pubkeys_for_swap(
     Ok(bin_array_pubkeys)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rpc"))]
 mod tests {
     use super::*;
-    use anchor_client::solana_client::rpc_response::RpcKeyedAccount;
-    use anchor_client::solana_sdk::clock::Clock;
-    use anchor_client::{
-        solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
-    };
+    use anchor_client::Cluster;
     use litesvm::LiteSVM;
+    use solana_rpc_client::nonblocking::rpc_client::RpcClient;
+    use solana_rpc_client_api::response::RpcKeyedAccount;
+    use solana_sdk::account::Account;
+
+    fn mint(account: &Account) -> MintAccount<'_> {
+        MintAccount {
+            owner: account.owner,
+            data: &account.data,
+        }
+    }
 
     pub const DLMM_PROGRAM_FILE_PATH: &str = "../artifacts/lb_clmm.so";
 
     /// Get on chain clock
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
         let clock_account = rpc_client
-            .get_account(&anchor_client::solana_sdk::sysvar::clock::ID)
+            .get_account(&solana_sdk::sysvar::clock::ID)
             .await?;
 
         let clock_state: Clock = bincode::deserialize(clock_account.data.as_ref())?;
@@ -792,8 +802,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -812,8 +822,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -833,8 +843,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -853,8 +863,8 @@ mod tests {
             bin_arrays,
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -928,8 +938,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -949,8 +959,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         )
         .unwrap();
 
@@ -967,15 +977,14 @@ mod tests {
 
         let mut svm = LiteSVM::new().with_sysvars();
         let program_bytes = std::fs::read(DLMM_PROGRAM_FILE_PATH).unwrap();
-        svm.add_program(dlmm::ID, &program_bytes);
+        svm.add_program(dlmm::ID, &program_bytes).unwrap();
 
         let accounts_dir = std::fs::read_dir(associated_accounts_folder_path).unwrap();
         for entry in accounts_dir {
             let account_data = std::fs::read_to_string(entry.unwrap().path()).unwrap();
             let rpc_account: RpcKeyedAccount =
                 serde_json::from_str(&account_data).expect("Failed to deserialize account data");
-            let account: anchor_client::solana_sdk::account::Account =
-                rpc_account.account.decode().unwrap();
+            let account: Account = rpc_account.account.decode().unwrap();
             let account_pubkey = Pubkey::from_str_const(&rpc_account.pubkey);
 
             svm.set_account(account_pubkey, account.clone()).unwrap();
@@ -1015,8 +1024,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         );
 
         assert!(quote_result.is_err());
@@ -1033,8 +1042,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         );
         assert!(quote_result.is_err());
         let err = quote_result.unwrap_err();
@@ -1050,8 +1059,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         );
 
         assert!(quote_result.is_err());
@@ -1068,8 +1077,8 @@ mod tests {
             bin_arrays.clone(),
             None,
             &clock,
-            &mint_x_account,
-            &mint_y_account,
+            &mint(&mint_x_account),
+            &mint(&mint_y_account),
         );
 
         assert!(quote_result.is_err());
