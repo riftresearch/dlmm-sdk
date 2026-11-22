@@ -105,7 +105,10 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
         } else {
             -(bin_array_index + 1) / BIN_ARRAY_BITMAP_SIZE - 1
         };
-        Ok(offset as usize)
+        usize::try_from(offset)
+            .ok()
+            .filter(|&offset| offset < EXTENSION_BINARRAY_BITMAP_SIZE)
+            .context("bin array index outside the bitmap extension")
     }
 
     fn iter_bitmap(&self, start_index: i32, end_index: i32) -> Result<Option<i32>> {

@@ -138,7 +138,11 @@ impl LbPairExtension for LbPair {
             .context("overflow")?
             .checked_mul(10u128)
             .context("overflow")?
-            .checked_mul(10u128.pow(self.parameters.base_fee_power_factor.into()))
+            .checked_mul(
+                10u128
+                    .checked_pow(self.parameters.base_fee_power_factor.into())
+                    .context("overflow")?,
+            )
             .context("overflow")?)
     }
 
